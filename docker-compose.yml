@@ -1,0 +1,187 @@
+version: "3.8"
+
+services:
+  # ============================================
+  # PostgreSQL 数据库
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: youth-writing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: youth_writing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d youth_writing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - youth-writing-network
+
+  # ============================================
+  # Redis 缓存
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: youth-writing-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - youth-writing-network
+
+  # ============================================
+  # 后端 API 服务
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: youth-writing-backend
+    restart: unless-stopped
+    environment:
+      # 数据库配置
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/youth_writing
+      SYNC_DATABASE_URL: postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/youth_writing
+
+      # Redis 配置
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # 安全配置
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+
+      # OSS 配置（可选）
+      OSS_ENABLED: ${OSS_ENABLED:-false}
+
+      # 文件上传限制
+      MAX_FILE_SIZE: 10485760
+      MAX_ZIP_FILES: 100
+      MAX_ZIP_DEPTH: 3
+      MAX_UNZIP_SIZE: 524288000
+
+      # LLM 配置
+      LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-gpt-4-turbo}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # 时区
+      TZ: Asia/Shanghai
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - youth-writing-network
+    volumes:
+      - backend_uploads:/app/uploads
+
+  # ============================================
+  # 前端 Web 服务
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: youth-writing-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_URL: http://backend:8000
+      NEXT_TELEMETRY_DISABLED: 1
+      TZ: Asia/Shanghai
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - youth-writing-network
+
+  # ============================================
+  # Nginx 反向代理（可选）
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: youth-writing-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - youth-writing-network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+
+networks:
+  youth-writing-network:
+    driver: bridge
+
+# ============================================
+# 使用说明
+# ============================================
+# 1. 复制环境变量模板
+#    cp .env.example .env
+#
+# 2. 修改 .env 中的配置
+#    - POSTGRES_PASSWORD: 数据库密码
+#    - SECRET_KEY: JWT 密钥
+#    - OPENAI_API_KEY: OpenAI API Key
+#
+# 3. 启动服务
+#    docker-compose up -d
+#
+# 4. 查看日志
+#    docker-compose logs -f
+#
+# 5. 生产环境启动（包含 Nginx）
+#    docker-compose --profile production up -d
