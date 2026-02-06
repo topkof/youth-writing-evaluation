@@ -4,10 +4,10 @@
 
 - [简介](#简介)
 - [架构概览](#架构概览)
+- [部署模式](#部署模式)
 - [镜像优化](#镜像优化)
 - [快速开始](#快速开始)
 - [生产部署](#生产部署)
-- [服务说明](#服务说明)
 - [监控和维护](#监控和维护)
 - [故障排除](#故障排除)
 
@@ -19,358 +19,278 @@
 
 - **PostgreSQL 15** - 主数据库
 - **Redis 7** - 缓存和会话存储
-- **FastAPI 后端** - API 服务
-- **Next.js 前端** - Web 应用
-- **Nginx** - 反向代理（生产环境）
+- **FastAPI 后端** - API 服务（端口 8000）
+- **Next.js 前端** - Web 应用（端口 3000）
+
+**注意**：本项目不内置 Nginx 反向代理，请在部署环境手动配置。
 
 ---
 
 ## 架构概览
 
+### 分离部署模式
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        用户请求                              │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Nginx (80/443)                                           │
-│  ├── 反向代理前端 -> frontend:3000                         │
-│  └── 反向代理 API -> backend:8000                          │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-              ┌──────────┴──────────┐
-              ▼                      ▼
-┌─────────────────────┐    ┌─────────────────────┐
-│  Frontend (:3000)   │    │  Backend (:8000)    │
-│  Next.js 14         │    │  FastAPI + Uvicorn  │
-│  Node.js 18 Alpine  │    │  Python 3.11 Slim   │
-└─────────────────────┘    └─────────────────────┘
-                                      │
-                    ┌─────────────────┼─────────────────┐
-                    ▼                 ▼                 ▼
-          ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-          │  Redis (:6379) │ │ PostgreSQL      │ │   上传文件      │
-          │  缓存          │ │ (:5432)         │ │   持久化卷      │
-          └─────────────────┘ └─────────────────┘ └─────────────────┘
+┌─────────────────────────────────────────────────┐
+│                   用户请求                         │
+└────────────────────┬──────────────────────────┘
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐
+│ 前端 (:3000)    │    │ 后端 (:8000)    │
+│ Next.js 静态    │    │ FastAPI API    │
+└────────┬────────┘    └────────┬────────┘
+         │                       │
+         └───────────┬───────────┘
+                     ▼
+         ┌───────────────────────┐
+         │   PostgreSQL / Redis  │
+         └───────────────────────┘
 ```
+
+### All-in-One 合并模式
+
+```
+┌─────────────────────────────────────────────────┐
+│                   用户请求                         │
+└────────────────────┬──────────────────────────┘
+                     ▼
+         ┌───────────────────────┐
+         │  All-in-One (:8080)  │
+         │  ┌─────────────────┐  │
+         │  │ 前端静态 (+API)  │  │
+         │  └─────────────────┘  │
+         └───────────┬───────────┘
+                     ▼
+         ┌───────────────────────┐
+         │   PostgreSQL / Redis  │
+         └───────────────────────┘
+```
+
+---
+
+## 部署模式
+
+### 模式 1：分离部署（推荐生产）
+
+- **后端**：`ghcr.io/topkof/youth-writing-evaluation/backend:latest`
+- **前端**：`ghcr.io/topkof/youth-writing-evaluation/frontend:latest`
+- **端口**：前端 3000，后端 8000
+- **适用**：生产环境，需要手动配置 Nginx 反向代理
+
+### 模式 2：All-in-One 合并
+
+- **镜像**：`ghcr.io/topkof/youth-writing-evaluation/allinone:latest`
+- **端口**：8080
+- **适用**：开发测试、小规模部署
+
+### 模式 3：手动部署
+
+- 分别运行后端和前端容器
+- 完全独立管理
+- **适用**：需要精细控制的场景
 
 ---
 
 ## 镜像优化
 
-本项目采用以下优化策略将镜像体积降到最低：
-
 ### 后端优化
 
 | 优化策略 | 说明 | 效果 |
 |----------|------|------|
-| **多阶段构建** | 分离编译依赖和运行时依赖 | 减少 ~300MB |
-| **Python Slim 镜像** | 使用 slim 版本，不含开发工具 | 减少 ~500MB |
-| **依赖缓存** | 只在依赖变更时重新安装 | 加快构建 |
-| **非 root 用户** | 提高安全性 | - |
-| **健康检查** | 容器自检机制 | 提高可用性 |
+| 多阶段构建 | 分离编译依赖和运行时依赖 | 减少 ~300MB |
+| Python Slim | 使用 slim 版本，不含开发工具 | 减少 ~500MB |
+| 最小依赖 | 只安装 libpq5 运行时 | 减少 ~20MB |
+| 依赖缓存 | 只在依赖变更时重新安装 | 加快构建 |
 
 ### 前端优化
 
 | 优化策略 | 说明 | 效果 |
 |----------|------|------|
-| **Alpine 镜像** | 最小的 Node.js 镜像 | 减少 ~800MB |
-| **standalone 输出** | Next.js 独立输出 | 减少 ~100MB |
-| **依赖缓存** | 分离依赖安装阶段 | 加快构建 |
-| **静态资源优化** | Gzip 压缩、缓存头 | 提高性能 |
+| Alpine 镜像 | 最小的 Node.js 镜像 | 减少 ~800MB |
+| standalone 输出 | Next.js 独立输出 | 减少 ~100MB |
+| serve 托管 | 使用 serve 而非 Node.js 服务器 | 减少 ~30MB |
+| 依赖缓存 | 分离依赖安装阶段 | 加快构建 |
 
 ### 镜像大小对比
 
-```
-优化前：
-├── Python:3.11         ~1.1 GB
-├── Node:18            ~1.2 GB
-└── 总计               ~2.3 GB
-
-优化后：
-├── Python:3.11-slim   ~150 MB
-├── Node:18-alpine     ~180 MB
-└── 总计               ~330 MB
-
-减少约 85%
-```
-
----
-
-## All-in-One 合并部署模式
-
-### 简介
-
-All-in-One 模式将前端静态文件和后端 API 合并为一个 Docker 镜像，通过 Nginx 同时提供静态文件服务和 API 反向代理。
-
-### 架构图
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        用户请求                              │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Nginx (:8080)                                            │
-│  ├── 静态文件 -> /var/www/standalone                     │
-│  └── API -> localhost:8000 (FastAPI)                      │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-              ┌──────────┴──────────┐
-              ▼                      ▼
-┌─────────────────────┐    ┌─────────────────────┐
-│  FastAPI (:8000)   │    │   Nginx (:8080)    │
-│  Python 3.11       │    │  Alpine            │
-│  + Nginx           │    │  前端静态文件       │
-└─────────────────────┘    └─────────────────────┘
-              │
-              ▼
-┌─────────────────────┐
-│  PostgreSQL/Redis  │
-└─────────────────────┘
-```
-
-### 镜像大小对比
-
-| 模式 | 镜像数量 | 单镜像大小 | 总大小 | 启动容器数 |
-|------|----------|-----------|--------|-----------|
-| 分离模式 | 2 | ~180MB | ~360MB | 3 (frontend+backend+nginx) |
-| All-in-One | 1 | ~200MB | ~200MB | 1 |
-| **节省** | 50% | - | **44%** | **67%** |
-
-### 快速开始
-
-```bash
-# 启动 All-in-One 模式
-docker compose --profile allinone up -d --build
-
-# 访问应用
-curl http://localhost:8080
-
-# 查看日志
-docker compose logs -f allinone
-```
-
-### 使用预构建镜像
-
-```bash
-# 拉取并运行
-docker run -d \
-  --name youth-writing-allinone \
-  -p 8080:8080 \
-  -e POSTGRES_PASSWORD=your_password \
-  -e SECRET_KEY=your-secret-key \
-  ghcr.io/topkof/youth-writing-evaluation/allinone:latest
-```
-
-### 端口说明
-
-| 模式 | 端口 | 用途 |
-|------|------|------|
-| 分离模式 | 3000 | 前端 |
-| 分离模式 | 8000 | 后端 API |
-| All-in-One | 8080 | 前端 + API 统一入口 |
-| 生产环境 | 80/443 | Nginx 反向代理 |
-
-### 优缺点对比
-
-| 特性 | 分离模式 | All-in-One 模式 |
-|------|----------|-----------------|
-| 镜像大小 | 较大 (~360MB) | 较小 (~200MB) |
-| 启动时间 | 较慢 (3个容器) | 较快 (1个容器) |
-| 资源占用 | 较高 | 较低 |
-| 扩展性 | 前后端独立扩展 | 整体扩展 |
-| 适用场景 | 生产环境 | 开发/测试/小规模部署 |
-
-### 选择建议
-
-- **开发/测试**：推荐 All-in-One，部署简单
-- **小规模生产**：推荐 All-in-One，资源占用低
-- **大规模/高并发**：推荐分离模式，支持独立扩展
-- **微服务架构**：推荐分离模式，便于独立更新
-
----
+| 镜像 | 优化前 | 优化后 | 节省 |
+|------|--------|--------|------|
+| 后端 | ~1.1 GB | ~120 MB | **89%** |
+| 前端 | ~1.2 GB | ~150 MB | **87%** |
+| All-in-One | - | ~180 MB | - |
 
 ---
 
 ## 快速开始
 
-### 1. 环境准备
+### 环境准备
 
 ```bash
-# 确保已安装 Docker 和 Docker Compose
-docker --version        # Docker 24.0+
-docker compose version  # v2.20+
-
-# 创建项目目录
-mkdir youth-writing
-cd youth-writing
+# 安装 Docker 和 Docker Compose
+# 确保已配置好 PostgreSQL 和 Redis
 ```
 
-### 2. 配置环境变量
+### 配置环境变量
 
 ```bash
 # 复制环境变量模板
 cp .env.example .env
 
-# 编辑配置（必需修改以下项）
+# 编辑配置（必需）
 vim .env
 ```
 
-**必须修改的配置项：**
+必需配置项：
 
 ```env
-# 数据库密码（强密码建议）
-POSTGRES_PASSWORD=YourStrongPassword123!
-
-# JWT 密钥（32位以上随机字符串）
-SECRET_KEY=your-super-secret-key-at-least-32-characters-long
-
-# OpenAI API Key（可选，用于 AI 评分功能）
+POSTGRES_PASSWORD=your_secure_password
+SECRET_KEY=your-jwt-secret-key-at-least-32-chars
 OPENAI_API_KEY=sk-your-api-key
 ```
 
-### 3. 启动服务
+### 启动服务
+
+#### 方式 1：All-in-One 合并模式
 
 ```bash
-# 构建并启动所有服务（后台运行）
-docker compose up -d --build
+# 启动
+docker compose --profile allinone up -d
 
-# 查看启动状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f
+# 访问
+curl http://localhost:8080
 ```
 
-### 4. 验证部署
+#### 方式 2：分离部署
 
 ```bash
-# 检查前端
-curl http://localhost:3000
+# 启动后端
+docker compose up backend -d
+
+# 启动前端
+docker compose --profile frontend up -d
+
+# 访问
+curl http://localhost:3000      # 前端
+curl http://localhost:8000/docs # API 文档
+```
+
+### 验证部署
+
+```bash
+# 检查容器状态
+docker compose ps
 
 # 检查后端健康
 curl http://localhost:8000/health
 
-# 检查 API 文档
-open http://localhost:8000/docs
-```
-
-**预期输出：**
-
-```json
-{
-  "status": "healthy",
-  "version": "2.0.0"
-}
+# 检查前端
+curl http://localhost:3000
 ```
 
 ---
 
 ## 生产部署
 
-### 1. 配置 SSL 证书
+### 1. 拉取镜像
 
 ```bash
-# 创建 SSL 证书目录
-mkdir -p ssl
+# 拉取后端镜像
+docker pull ghcr.io/topkof/youth-writing-evaluation/backend:latest
 
-# 使用 Let's Encrypt（需要域名已解析）
-certbot certonly --nginx -d yourdomain.com -d www.yourdomain.com
+# 拉取前端镜像
+docker pull ghcr.io/topkof/youth-writing-evaluation/frontend:latest
 
-# 复制证书
-cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ssl/
-cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ssl/
+# 或拉取 All-in-One 镜像
+docker pull ghcr.io/topkof/youth-writing-evaluation/allinone:latest
 ```
 
-### 2. 修改 Nginx 配置
+### 2. 配置环境变量
 
-编辑 `nginx.conf`，取消 HTTPS 服务器块的注释：
+```bash
+# 创建 .env 文件
+vim .env
+```
+
+```env
+POSTGRES_PASSWORD=your_secure_password
+SECRET_KEY=your-jwt-secret-key
+OPENAI_API_KEY=sk-your-api-key
+DATABASE_URL=postgresql://user:pass@host:5432/youth_writing
+REDIS_HOST=your-redis-host
+REDIS_PORT=6379
+CORS_ORIGINS=https://yourdomain.com
+```
+
+### 3. 手动配置 Nginx 反向代理
+
+**示例 Nginx 配置**：
 
 ```nginx
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com;
+# /etc/nginx/conf.d/youth-writing.conf
 
-    ssl_certificate /etc/nginx/ssl/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-    # ... 其他配置
-}
-
-# HTTP 重定向到 HTTPS
+# 前端静态文件
 server {
     listen 80;
     server_name yourdomain.com;
-    return 301 https://$server_name$request_uri;
+
+    # 前端静态文件
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# 后端 API
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket 支持（如需要）
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # API 文档
+    location /docs {
+        proxy_pass http://localhost:8000/docs;
+    }
+
+    location /redoc {
+        proxy_pass http://localhost:8000/redoc;
+    }
 }
 ```
 
-### 3. 启动生产环境
+### 4. 启动服务
 
 ```bash
-# 包含 Nginx 的完整部署
-docker compose --profile production up -d --build
+# 启动数据库（如果使用容器外数据库，跳过）
+docker compose up -d postgres redis
+
+# 启动后端
+docker compose up backend -d
+
+# 启动前端
+docker compose --profile frontend up -d
 ```
 
-### 4. 配置防火墙
+### 5. 配置 HTTPS（推荐）
+
+使用 Let's Encrypt：
 
 ```bash
-# Ubuntu UFW
-sudo ufw allow 80
-sudo ufw allow 443
-
-# 云服务器安全组
-# 在阿里云/腾讯云控制台开放 80、443 端口
-```
-
----
-
-## 服务说明
-
-### 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `POSTGRES_PASSWORD` | - | **必填** PostgreSQL 密码 |
-| `SECRET_KEY` | - | **必填** JWT 签名密钥 |
-| `OPENAI_API_KEY` | - | OpenAI API Key（AI 评分功能） |
-| `LLM_DEFAULT_MODEL` | `gpt-4-turbo` | 默认 LLM 模型 |
-| `MAX_FILE_SIZE` | `10485760` | 最大上传文件大小（字节） |
-| `OSS_ENABLED` | `false` | 是否启用阿里云 OSS |
-
-### 端口映射
-
-| 服务 | 内部端口 | 外部端口 | 说明 |
-|------|----------|----------|------|
-| PostgreSQL | 5432 | 5432 | 仅本地访问 |
-| Redis | 6379 | 6379 | 仅本地访问 |
-| Backend | 8000 | 8000 | API 服务 |
-| Frontend | 3000 | 3000 | Web 应用 |
-| All-in-One | 8080 | 8080 | 前端 + API 统一入口 |
-| Nginx | 80/443 | 80/443 | 反向代理 |
-
-### 数据持久化
-
-```yaml
-volumes:
-  postgres_data:    # PostgreSQL 数据
-  redis_data:       # Redis 数据
-  backend_uploads:  # 上传文件
-```
-
-**备份命令：**
-
-```bash
-# 备份 PostgreSQL
-docker compose exec postgres pg_dump -U postgres youth_writing > backup.sql
-
-# 备份 Redis
-docker compose exec redis redis-cli BGSAVE
-
-# 备份上传文件
-docker run --rm -v youth-writing_backend_uploads:/data -v $(pwd):/backup alpine tar czf /backup/uploads.tar.gz -C /data .
+certbot --nginx -d yourdomain.com -d api.yourdomain.com
 ```
 
 ---
@@ -383,7 +303,7 @@ docker run --rm -v youth-writing_backend_uploads:/data -v $(pwd):/backup alpine 
 # 检查所有服务状态
 docker compose ps
 
-# 检查容器健康状态
+# 检查后端健康
 docker compose exec backend python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 ```
 
@@ -396,9 +316,7 @@ docker compose logs -f
 # 指定服务日志
 docker compose logs -f backend
 docker compose logs -f frontend
-
-# 最近 100 行日志
-docker compose logs --tail 100
+docker compose logs -f allinone
 ```
 
 ### 资源监控
@@ -415,27 +333,27 @@ docker system df
 ### 更新部署
 
 ```bash
-# 拉取最新代码
-git pull origin main
+# 拉取最新镜像
+docker compose pull
 
-# 重新构建并启动
-docker compose up -d --build
+# 重新启动
+docker compose up -d
 
 # 清理旧镜像
 docker image prune -f
 ```
 
-### 数据库迁移
+### 数据备份
 
 ```bash
-# 查看当前迁移状态
-docker compose exec backend alembic current
+# 备份 PostgreSQL
+docker compose exec postgres pg_dump -U postgres youth_writing > backup.sql
 
-# 升级数据库
-docker compose exec backend alembic upgrade head
+# 备份 Redis
+docker compose exec redis redis-cli BGSAVE
 
-# 创建新迁移
-docker compose exec backend alembic revision -m "描述变更"
+# 备份上传文件
+docker run --rm -v youth-writing_backend_uploads:/data -v $(pwd):/backup alpine tar czf /backup/uploads.tar.gz -C /data .
 ```
 
 ---
@@ -448,10 +366,10 @@ docker compose exec backend alembic revision -m "描述变更"
 # 检查端口占用
 lsof -i :8000
 
-# 查看详细错误
+# 查看日志
 docker compose logs backend
 
-# 常见原因：
+# 常见原因
 # - DATABASE_URL 配置错误
 # - PostgreSQL 未启动
 # - 端口已被占用
@@ -461,71 +379,52 @@ docker compose logs backend
 
 ```bash
 # 测试数据库连接
-docker compose exec backend python -c "import asyncio; from app.db.session import engine; asyncio.run(engine.connect())"
+docker compose exec backend python -c "import psycopg2; psycopg2.connect('host=postgres user=postgres dbname=youth_writing')"
 
 # 检查 PostgreSQL 日志
 docker compose logs postgres
 
-# 解决方案：
+# 解决方案
 # 1. 确保 POSTGRES_PASSWORD 与环境变量一致
-# 2. 等待 PostgreSQL 完全启动（健康检查通过）
+# 2. 等待 PostgreSQL 完全启动
 ```
 
-### 3. 前端 502 错误
+### 3. 前端无法访问
 
 ```bash
 # 检查前端日志
 docker compose logs frontend
 
-# 检查 Nginx 配置
-docker compose exec nginx nginx -t
+# 检查端口
+docker compose exec frontend netstat -tlnp | grep 3000
 
-# 解决方案：
+# 解决方案
 # 1. 确保前端容器正在运行
-# 2. 检查 Nginx 反向代理配置
+# 2. 检查端口映射
+# 3. 检查 CORS 配置
 ```
 
-### 4. All-in-One 模式 502 错误
+### 4. All-in-One 模式问题
 
 ```bash
-# 检查 allinone 日志
+# 检查日志
 docker compose logs allinone
 
-# 检查 Nginx 和 FastAPI 状态
+# 检查进程
 docker compose exec allinone ps aux
 
-# 解决方案：
+# 解决方案
 # 1. 确保 PostgreSQL 和 Redis 健康检查通过
 # 2. 检查端口 8080 是否被占用
 # 3. 查看 FastAPI 日志确认后端启动成功
 ```
 
-### 5. 文件上传失败
-
-```bash
-# 检查上传目录权限
-docker compose exec backend ls -la /app/uploads
-
-# 解决方案：
-# 1. 确保 backend_uploads 卷已正确挂载
-# 2. 检查 MAX_FILE_SIZE 配置
-# 3. 检查 Nginx client_max_body_size 配置
-```
-
 ### 5. CORS 跨域错误
 
-在浏览器控制台查看错误，解决方案：
-
-```python
-# 确保 CORS 配置包含前端域名
-# backend/app/main.py
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://yourdomain.com"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+```bash
+# 确保 CORS_ORIGINS 配置正确
+# 在 .env 中设置
+CORS_ORIGINS=https://yourdomain.com
 ```
 
 ### 6. 内存不足
@@ -534,7 +433,7 @@ app.add_middleware(
 # 查看内存使用
 free -m
 
-# 优化建议：
+# 优化建议
 # 1. PostgreSQL: max_connections 调小
 # 2. Redis: maxmemory 限制
 # 3. 考虑增加服务器内存
@@ -542,22 +441,39 @@ free -m
 
 ---
 
-## Docker 镜像构建单独使用
+## Docker 镜像使用
 
-### 只构建后端镜像
+### 单独运行后端
 
 ```bash
-cd backend
-docker build -t youth-writing-backend .
-docker run -d -p 8000:8000 --env-file ../.env youth-writing-backend
+docker run -d \
+  --name youth-writing-backend \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://... \
+  -e REDIS_HOST=... \
+  -e SECRET_KEY=... \
+  ghcr.io/topkof/youth-writing-evaluation/backend:latest
 ```
 
-### 只构建前端镜像
+### 单独运行前端
 
 ```bash
-cd frontend
-docker build -t youth-writing-frontend .
-docker run -d -p 3000:3000 -e API_URL=http://backend:8000 youth-writing-frontend
+docker run -d \
+  --name youth-writing-frontend \
+  -p 3000:3000 \
+  -e API_URL=http://your-backend:8000 \
+  ghcr.io/topkof/youth-writing-evaluation/frontend:latest
+```
+
+### 运行 All-in-One
+
+```bash
+docker run -d \
+  --name youth-writing-allinone \
+  -p 8080:8080 \
+  -e DATABASE_URL=postgresql://... \
+  -e REDIS_HOST=redis \
+  ghcr.io/topkof/youth-writing-evaluation/allinone:latest
 ```
 
 ---

@@ -71,6 +71,7 @@ services:
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-gpt-4-turbo}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TZ: Asia/Shanghai
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     ports:
       - "8000:8000"
     depends_on:
@@ -91,6 +92,7 @@ services:
 
   # ============================================
   # 前端 Web 服务（独立模式）
+  # 使用 serve 托管静态文件
   # ============================================
   frontend:
     build:
@@ -100,7 +102,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      API_URL: http://backend:8000
+      API_URL: ${API_URL:-http://localhost:8000}
       NEXT_TELEMETRY_DISABLED: 1
       TZ: Asia/Shanghai
     ports:
@@ -118,9 +120,9 @@ services:
       - frontend
 
   # ============================================
-  # 合并部署：All-in-One 模式
-  # 使用 Nginx 同时托管前端静态文件和反向代理后端 API
-  # 镜像更小，启动更快
+  # All-in-One 合并部署
+  # 单容器同时提供前端静态文件和后端 API
+  # 镜像更小，部署更简单
   # ============================================
   allinone:
     build:
@@ -144,6 +146,7 @@ services:
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-gpt-4-turbo}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TZ: Asia/Shanghai
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     ports:
       - "8080:8080"
     depends_on:
@@ -164,32 +167,6 @@ services:
     profiles:
       - allinone
 
-  # ============================================
-  # Nginx 反向代理（生产环境）
-  # ============================================
-  nginx:
-    image: nginx:alpine
-    container_name: youth-writing-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - frontend
-      - backend
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - youth-writing-network
-    profiles:
-      - production
-
 volumes:
   postgres_data:
     driver: local
@@ -205,20 +182,25 @@ networks:
 # ============================================
 # 使用说明
 # ============================================
-# 模式1：分离模式（默认）
-# docker compose up -d
+# 模式1：分离部署（后端 + 前端）
+# docker compose -f docker-compose.yml up -d
 # 访问：http://localhost:3000
 # API：http://localhost:8000
 #
-# 模式2：前端独立模式
+# 模式2：只启动后端
+# docker compose up backend -d
+#
+# 模式3：只启动前端
 # docker compose --profile frontend up -d
 #
-# 模式3：All-in-One 合并模式
-# docker compose --profile allinone up -d
+# 模式4：All-in-One 合并部署
+# docker compose --profile allinone up -d --build
 # 访问：http://localhost:8080
-#
-# 模式4：生产环境（包含 Nginx）
-# docker compose --profile production --profile frontend up -d
 #
 # 环境变量配置
 # cp .env.example .env
+#
+# 注意事项：
+# - Nginx 反向代理请在宿主机手动配置
+# - 确保 CORS_ORIGINS 配置正确的允许域名
+# - 生产环境建议使用 HTTPS

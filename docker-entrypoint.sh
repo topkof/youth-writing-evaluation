@@ -1,15 +1,14 @@
 #!/bin/sh
 set -e
 
-echo "Starting Youth Writing Evaluation System (All-in-One Mode)..."
+echo "Starting Youth Writing Evaluation System..."
 
 # 创建必要目录
 mkdir -p /var/log/youth-writing
-mkdir -p /var/run/youth-writing
 mkdir -p /app/uploads
 
 # 设置权限
-chown -R appuser:appgroup /app /var/log/youth-writing /var/run/youth-writing 2>/dev/null || true
+chown -R appuser:appgroup /app /var/log/youth-writing 2>/dev/null || true
 
 # 等待数据库就绪
 echo "Waiting for database..."
@@ -21,13 +20,15 @@ echo "Database is ready!"
 
 # 初始化数据库
 echo "Initializing database..."
-cd /app
+cd /app/backend
 python3 -m alembic upgrade head 2>/dev/null || true
 
-# 启动 Nginx（在后台）
-echo "Starting Nginx..."
-nginx -g 'daemon off;' &
+# 启动前端静态文件服务（在后台）
+echo "Starting frontend static server..."
+serve -s /app/frontend-server -l 8080 &
+FRONTEND_PID=$!
 
-# 启动后端服务
+# 启动后端 API 服务
 echo "Starting FastAPI backend..."
+cd /app/backend
 exec python3 main.py

@@ -1,7 +1,7 @@
 # ============================================
 # All-in-One Docker 镜像
 # 将前端静态文件和后端 API 合并为一个镜像
-# 镜像大小：约 180MB（相比分离部署节省约 50%）
+# 镜像大小：~180MB（相比分离部署节省约 30%）
 # ============================================
 
 # ============================================
@@ -11,18 +11,17 @@ FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app
 
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY frontend/package*.json ./
 RUN npm ci
 
 COPY frontend/ .
-
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ============================================
-# Stage 2: 构建后端依赖
+# Stage 2: 安装后端依赖
 # ============================================
-FROM python:3.11-slim-bookworm AS backend-deps
+FROM python:3.11-slim AS backend-deps
 
 WORKDIR /app
 
@@ -32,44 +31,44 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # ============================================
 # Stage 3: 最终生产镜像
 # ============================================
-FROM nginx:alpine AS production
+FROM python:3.11-slim AS production
 
-# 安装运行时依赖
-RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    libpq \
-    && rm -rf /var/cache/apk/*
+WORKDIR /app
 
-# 创建应用目录
-RUN mkdir -p /app /var/log/youth-writing /var/run/youth-writing
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# 复制前端构建产物到 Nginx 目录
-COPY --from=frontend-builder /app/frontend/.next/static /var/www/static
-COPY --from=frontend-builder /app/frontend/public /var/www/public
-COPY --from=frontend-builder /app/frontend/.next/standalone /var/www/standalone
-COPY --from=frontend-builder /app/frontend/.next/server /var/www/server
+# 运行时依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
 
-# 复制后端代码
+# 安装 serve
+RUN npm install -g serve && npm cache clean --force
+
+# 复制前端构建产物
+COPY --from=frontend-builder /app/frontend/.next/standalone ./frontend-server
+COPY --from=frontend-builder /app/frontend/.next/static ./frontend-static
+COPY --from=frontend-builder /app/frontend/public ./frontend-public
+
+# 复制后端代码和依赖
 COPY --from=backend-deps/install /usr/local /usr/local
-COPY backend/ /app/
+COPY backend/ ./backend/
 
-# 复制 Nginx 配置
-COPY nginx.allinone.conf /etc/nginx/nginx.conf
-
-# 创建非 root 用户
-RUN addgroup -g 1001 appgroup && \
-    adduser -u 1001 -G appgroup -s /bin/sh -D appuser && \
-    chown -R appuser:appgroup /app /var/log/youth-writing /var/run/youth-writing /var/www
-
+# 创建用户
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
+    chown -R appuser:appgroup /app
 USER appuser
+
+EXPOSE 8080
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD wget --spider -q http://localhost:8080 || exit 1
-
-# 暴露端口（8080 用于 all-in-one 模式）
-EXPOSE 8080
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080')" || exit 1
 
 # 启动脚本
 COPY docker-entrypoint.sh /docker-entrypoint.sh
