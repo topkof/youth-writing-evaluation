@@ -463,13 +463,6 @@ npm run test:e2e
 
 ---
 
-## 联系方式
-
-- 项目地址：https://github.com/yourusername/youth-writing-evaluation
-- Issue：https://github.com/yourusername/youth-writing-evaluation/issues
-- 邮箱：contact@example.com
-
----
 
 <div align="center">
 
