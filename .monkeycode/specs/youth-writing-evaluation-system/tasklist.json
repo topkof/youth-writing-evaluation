@@ -1,0 +1,557 @@
+{
+  "project_name": "青少年写作质量评测系统",
+  "project_key": "youth-writing-evaluation",
+  "version": "2.0.0",
+  "created_at": "2026-02-06",
+  "tasks": [
+    {
+      "id": "P001",
+      "module": "项目基础",
+      "title": "初始化项目仓库和开发环境",
+      "description": "创建 Git 仓库，配置开发环境（Python 3.11+、Node.js 18+），设置代码规范和提交规范",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "P002",
+      "module": "项目基础",
+      "title": "配置开发工具链",
+      "description": "配置 ESLint、Prettier、Black、isort、mypy 等代码检查工具，配置 Git Hooks",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["P001"]
+    },
+    {
+      "id": "B001",
+      "module": "后端-FastAPI",
+      "title": "搭建 FastAPI 项目框架",
+      "description": "创建 FastAPI 应用，配置 CORS、中间件、错误处理、日志系统",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["P001"]
+    },
+    {
+      "id": "B002",
+      "module": "后端-FastAPI",
+      "title": "配置 PostgreSQL 和 Redis",
+      "description": "设计数据库 Schema，创建初始化迁移脚本，配置 Redis 缓存",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B001"]
+    },
+    {
+      "id": "B003",
+      "module": "后端-数据库模型",
+      "title": "实现数据库领域模型",
+      "description": "实现 User、Essay、EssayEvaluation、EssayParserResult、ModelConfig、ExampleEssay、BatchTask 模型",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B002"]
+    },
+    {
+      "id": "B004",
+      "module": "后端-LLM Provider",
+      "title": "实现 LLM Provider 抽象基类",
+      "description": "定义 LLMProvider 抽象基类、LLMResponse 模型、EssayScoringTemplate 提示词模板",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B001"]
+    },
+    {
+      "id": "B005",
+      "module": "后端-LLM Provider",
+      "title": "实现 OpenAI Provider",
+      "description": "实现 OpenAI GPT-4/GPT-3.5-turbo 的调用、API Key 验证",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B006",
+      "module": "后端-LLM Provider",
+      "title": "实现 Claude Provider",
+      "description": "实现 Anthropic Claude 3.5/Claude 3 的调用、API Key 验证",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B007",
+      "module": "后端-LLM Provider",
+      "title": "实现 Gemini Provider",
+      "description": "实现 Google Gemini 1.5 Pro/Flash 的调用、API Key 验证",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B008",
+      "module": "后端-LLM Provider",
+      "title": "实现百度文心 Provider",
+      "description": "实现百度文心一言 ERNIE-4.0/3.5 的调用、OAuth 认证",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B009",
+      "module": "后端-LLM Provider",
+      "title": "实现阿里通义 Provider",
+      "description": "实现阿里云通义千问 Qwen-Turbo/Plus/Max 的调用",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B010",
+      "module": "后端-LLM Provider",
+      "title": "实现智谱清言 Provider",
+      "description": "实现智谱清言 GLM-4/GLM-3 Turbo 的调用",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B011",
+      "module": "后端-LLM Provider",
+      "title": "实现 LLM 工厂类和自定义 Provider",
+      "description": "实现 LLMFactory 工厂，支持注册自定义 OpenAI 兼容模型服务商",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B004"]
+    },
+    {
+      "id": "B012",
+      "module": "后端-评分引擎",
+      "title": "实现评分引擎核心",
+      "description": "实现 EssayScoringEngine、DimensionScore、ScoringResult，支持单篇评分",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B005"]
+    },
+    {
+      "id": "B013",
+      "module": "后端-评分引擎",
+      "title": "实现作文分类器",
+      "description": "实现 EssayClassifier，支持记叙文、议论文、说明文、读后感、游记、书信、诗歌的自动识别",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B012"]
+    },
+    {
+      "id": "B014",
+      "module": "后端-评分引擎",
+      "title": "实现作文解析器",
+      "description": "实现 EssayParser，支持字数统计、句子分析、错别字检测、标点分析，含往返验证",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B012"]
+    },
+    {
+      "id": "B015",
+      "module": "后端-文件处理",
+      "title": "实现文档解析服务",
+      "description": "实现 FileProcessor，支持 .doc/.docx/.md/.txt 文件解析，验证文件类型和大小",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "B016",
+      "module": "后端-文件处理",
+      "title": "实现 ZIP 解压处理服务",
+      "description": "实现 ZIP 解压、文件数量/深度/大小限制、解压后自动删除原始压缩包",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B015"]
+    },
+    {
+      "id": "B017",
+      "module": "后端-存储",
+      "title": "实现阿里云 OSS 存储服务",
+      "description": "实现 OSSStorage，支持按年/月/日/用户/作文路径存储，批量上传下载，统计使用量",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "B018",
+      "module": "后端-奖项管理",
+      "title": "实现奖项配置管理",
+      "description": "实现 AwardManager，支持自定义奖项名称和数量，预设竞赛/班级/鼓励模板",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "B019",
+      "module": "后端-奖项管理",
+      "title": "实现分数约束算法",
+      "description": "实现 calculate_thresholds 和 apply_score_constraints，一等奖95分则其他<95，二等奖92分则其他<92",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B018"]
+    },
+    {
+      "id": "B020",
+      "module": "后端-奖项管理",
+      "title": "实现并列处理机制",
+      "description": "实现 handle_ties，同分作文并列获奖，自动调整各奖项数量",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B019"]
+    },
+    {
+      "id": "B021",
+      "module": "后端-上下文处理",
+      "title": "实现上下文限制处理器",
+      "description": "实现 ContextLimitHandler，支持 Token 估算、可用空间计算、文本压缩",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "B022",
+      "module": "后端-上下文处理",
+      "title": "实现一致性评分引擎",
+      "description": "实现 ConsistentScoringEngine，支持摘要生成、横向对比评分、二次验证",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B021", "B012"]
+    },
+    {
+      "id": "B023",
+      "module": "后端-批量任务",
+      "title": "实现批量任务管理器",
+      "description": "实现 BatchTaskManager，支持任务创建、状态追踪、进度更新、中断恢复",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B022"]
+    },
+    {
+      "id": "B024",
+      "module": "后端-证书生成",
+      "title": "实现证书生成器",
+      "description": "实现 CertificateGenerator，支持正式/鼓励/进步三种模板，PDF 导出",
+      "priority": "P2",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "B025",
+      "module": "后端-API",
+      "title": "实现认证授权 API",
+      "description": "实现用户注册、登录、令牌刷新、个人资料管理接口",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B003"]
+    },
+    {
+      "id": "B026",
+      "module": "后端-API",
+      "title": "实现作文评测 API",
+      "description": "实现作文创建、提交评测、获取评测结果接口，支持单篇和批量",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B012", "B015"]
+    },
+    {
+      "id": "B027",
+      "module": "后端-API",
+      "title": "实现历史记录 API",
+      "description": "实现查询评测历史、进步曲线、统计分析接口",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B003"]
+    },
+    {
+      "id": "B028",
+      "module": "后端-API",
+      "title": "实现范文库 API",
+      "description": "实现范文列表、范文详情、范文推荐接口",
+      "priority": "P2",
+      "status": "pending",
+      "dependencies": ["B003"]
+    },
+    {
+      "id": "B029",
+      "module": "后端-API",
+      "title": "实现模型配置 API",
+      "description": "实现添加/更新/删除/测试模型配置接口，支持配置启用/禁用",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B011"]
+    },
+    {
+      "id": "B030",
+      "module": "后端-API",
+      "title": "实现批量任务 API",
+      "description": "实现创建批量任务、查询任务状态、获取任务结果接口",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["B023"]
+    },
+    {
+      "id": "B031",
+      "module": "后端-API",
+      "title": "实现奖项评选 API",
+      "description": "实现配置奖项、运行评选、获取获奖名单、生成证书接口",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B019", "B024"]
+    },
+    {
+      "id": "F001",
+      "module": "前端-Next.js",
+      "title": "初始化 Next.js 项目",
+      "description": "创建 Next.js 14 项目，配置 TypeScript、Tailwind CSS、shadcn/ui",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["P001"]
+    },
+    {
+      "id": "F002",
+      "module": "前端-UI组件",
+      "title": "配置 shadcn/ui 主题",
+      "description": "配置 Inter/Merriweather/JetBrains Mono 字体系统，设计色彩主题",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F001"]
+    },
+    {
+      "id": "F003",
+      "module": "前端-UI组件",
+      "title": "开发基础组件库",
+      "description": "开发 Button、Input、Select、Card、Dialog、Table、Tabs 等基础组件",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F002"]
+    },
+    {
+      "id": "F004",
+      "module": "前端-UI组件",
+      "title": "开发作文编辑器组件",
+      "description": "开发 EssayEditor，支持文本输入、文件上传、ZIP 上传、年级选择",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F005",
+      "module": "前端-UI组件",
+      "title": "开发评分展示组件",
+      "description": "开发 ScoreCard、RadarChart、ProgressBar、SuggestionList 等评分展示组件",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F006",
+      "module": "前端-UI组件",
+      "title": "开发奖项配置组件",
+      "description": "开发 AwardConfig、ScoreThresholdChart、获奖名单展示组件",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F007",
+      "module": "前端-页面",
+      "title": "开发首页/仪表盘",
+      "description": "开发首页，展示欢迎信息、快速入口、最近评测、进步统计",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F005"]
+    },
+    {
+      "id": "F008",
+      "module": "前端-页面",
+      "title": "开发作文评测页",
+      "description": "开发作文编辑器页，支持单篇评测、批量上传、模型选择、结果显示",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F004", "F005"]
+    },
+    {
+      "id": "F009",
+      "module": "前端-页面",
+      "title": "开发评测结果页",
+      "description": "开发详细评分报告页，包含雷达图、各维度分析、改进建议、范文对比",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F005"]
+    },
+    {
+      "id": "F010",
+      "module": "前端-页面",
+      "title": "开发历史记录页",
+      "description": "开发历史记录页，支持筛选、排序、进步曲线展示",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F011",
+      "module": "前端-页面",
+      "title": "开发范文库页",
+      "description": "开发范文库页，支持按类型/年级筛选、范文详情、对比分析",
+      "priority": "P2",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F012",
+      "module": "前端-页面",
+      "title": "开发批量任务管理页",
+      "description": "开发批量任务管理页，展示任务列表、进度、结果，支持下载",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F013",
+      "module": "前端-页面",
+      "title": "开发奖项评选页",
+      "description": "开发奖项评选页，支持奖项配置、分数约束结果展示、证书下载",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F006"]
+    },
+    {
+      "id": "F014",
+      "module": "前端-页面",
+      "title": "开发模型配置页",
+      "description": "开发模型配置页，支持添加/编辑/测试/删除模型配置",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "F015",
+      "module": "前端-API集成",
+      "title": "集成 API 客户端",
+      "description": "配置 TanStack Query、Axios，实现请求拦截、错误处理、认证",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F001"]
+    },
+    {
+      "id": "F016",
+      "module": "前端-文件上传",
+      "title": "实现文件上传组件",
+      "description": "实现大文件分片上传、进度显示、ZIP 解压状态显示",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F004"]
+    },
+    {
+      "id": "F017",
+      "module": "前端-可视化",
+      "title": "实现数据可视化",
+      "description": "实现雷达图、趋势图、柱状图、饼图等图表组件",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["F003"]
+    },
+    {
+      "id": "T001",
+      "module": "测试",
+      "title": "编写 LLM Provider 单元测试",
+      "description": "测试各 Provider 的 API 调用、响应解析、错误处理",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B005", "B006"]
+    },
+    {
+      "id": "T002",
+      "module": "测试",
+      "title": "编写评分引擎单元测试",
+      "description": "测试评分计算、评级判定、分数约束算法、并列处理",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B012", "B019"]
+    },
+    {
+      "id": "T003",
+      "module": "测试",
+      "title": "编写文件处理单元测试",
+      "description": "测试文档解析、ZIP 解压、文件验证、临时文件清理",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B015", "B016"]
+    },
+    {
+      "id": "T004",
+      "module": "测试",
+      "title": "编写上下文处理单元测试",
+      "description": "测试 Token 估算、文本压缩、分批策略、一致性评分",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B021", "B022"]
+    },
+    {
+      "id": "T005",
+      "module": "测试",
+      "title": "编写 API 集成测试",
+      "description": "测试所有 API 接口的请求响应、认证授权、错误处理",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B025", "B029"]
+    },
+    {
+      "id": "T006",
+      "module": "测试",
+      "title": "编写往返验证测试",
+      "description": "测试 Parser 解析结果的往返验证，确保解析准确无误",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B014"]
+    },
+    {
+      "id": "D001",
+      "module": "部署",
+      "title": "编写 Docker 配置文件",
+      "description": "编写 Dockerfile、docker-compose.yml，支持前后端分离部署",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["B001", "F001"]
+    },
+    {
+      "id": "D002",
+      "module": "部署",
+      "title": "配置 CI/CD 流水线",
+      "description": "配置 GitHub Actions，自动运行测试、构建镜像、部署到服务器",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["T001"]
+    },
+    {
+      "id": "D003",
+      "module": "部署",
+      "title": "配置反向代理",
+      "description": "配置 Nginx 反向代理、SSL 证书、负载均衡",
+      "priority": "P0",
+      "status": "pending",
+      "dependencies": ["D001"]
+    },
+    {
+      "id": "D004",
+      "module": "部署",
+      "title": "配置监控告警",
+      "description": "配置 Prometheus 监控、Grafana 看板、异常告警",
+      "priority": "P2",
+      "status": "pending",
+      "dependencies": ["D001"]
+    },
+    {
+      "id": "D005",
+      "module": "部署",
+      "title": "编写部署文档",
+      "description": "编写详细的部署指南，包括环境配置、数据库迁移、运维手册",
+      "priority": "P1",
+      "status": "pending",
+      "dependencies": ["D001"]
+    }
+  ]
+}
