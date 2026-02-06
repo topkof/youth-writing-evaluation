@@ -56,33 +56,20 @@ services:
     container_name: youth-writing-backend
     restart: unless-stopped
     environment:
-      # 数据库配置
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/youth_writing
       SYNC_DATABASE_URL: postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/youth_writing
-
-      # Redis 配置
       REDIS_HOST: redis
       REDIS_PORT: 6379
-
-      # 安全配置
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 10080
-
-      # OSS 配置（可选）
       OSS_ENABLED: ${OSS_ENABLED:-false}
-
-      # 文件上传限制
       MAX_FILE_SIZE: 10485760
       MAX_ZIP_FILES: 100
       MAX_ZIP_DEPTH: 3
       MAX_UNZIP_SIZE: 524288000
-
-      # LLM 配置
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-gpt-4-turbo}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-
-      # 时区
       TZ: Asia/Shanghai
     ports:
       - "8000:8000"
@@ -103,7 +90,7 @@ services:
       - backend_uploads:/app/uploads
 
   # ============================================
-  # 前端 Web 服务
+  # 前端 Web 服务（独立模式）
   # ============================================
   frontend:
     build:
@@ -127,9 +114,58 @@ services:
       retries: 3
     networks:
       - youth-writing-network
+    profiles:
+      - frontend
 
   # ============================================
-  # Nginx 反向代理（可选）
+  # 合并部署：All-in-One 模式
+  # 使用 Nginx 同时托管前端静态文件和反向代理后端 API
+  # 镜像更小，启动更快
+  # ============================================
+  allinone:
+    build:
+      context: .
+      dockerfile: Dockerfile.allinone
+    container_name: youth-writing-allinone
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/youth_writing
+      SYNC_DATABASE_URL: postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/youth_writing
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+      OSS_ENABLED: ${OSS_ENABLED:-false}
+      MAX_FILE_SIZE: 10485760
+      MAX_ZIP_FILES: 100
+      MAX_ZIP_DEPTH: 3
+      MAX_UNZIP_SIZE: 524288000
+      LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-gpt-4-turbo}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - youth-writing-network
+    volumes:
+      - backend_uploads:/app/uploads
+    profiles:
+      - allinone
+
+  # ============================================
+  # Nginx 反向代理（生产环境）
   # ============================================
   nginx:
     image: nginx:alpine
@@ -169,19 +205,20 @@ networks:
 # ============================================
 # 使用说明
 # ============================================
-# 1. 复制环境变量模板
-#    cp .env.example .env
+# 模式1：分离模式（默认）
+# docker compose up -d
+# 访问：http://localhost:3000
+# API：http://localhost:8000
 #
-# 2. 修改 .env 中的配置
-#    - POSTGRES_PASSWORD: 数据库密码
-#    - SECRET_KEY: JWT 密钥
-#    - OPENAI_API_KEY: OpenAI API Key
+# 模式2：前端独立模式
+# docker compose --profile frontend up -d
 #
-# 3. 启动服务
-#    docker-compose up -d
+# 模式3：All-in-One 合并模式
+# docker compose --profile allinone up -d
+# 访问：http://localhost:8080
 #
-# 4. 查看日志
-#    docker-compose logs -f
+# 模式4：生产环境（包含 Nginx）
+# docker compose --profile production --profile frontend up -d
 #
-# 5. 生产环境启动（包含 Nginx）
-#    docker-compose --profile production up -d
+# 环境变量配置
+# cp .env.example .env
