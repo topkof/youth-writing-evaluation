@@ -2,11 +2,13 @@
 
 <div align="center">
 
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/youth-writing-evaluation)](https://github.com/yourusername/youth-writing-evaluation)
-[![GitHub issues](https://img.shields.io/github/issues/yourusername/youth-writing-evaluation)](https://github.com/yourusername/youth-writing-evaluation/issues)
-[![License](https://img.shields.io/github/license/yourusername/youth-writing-evaluation)](https://github.com/yourusername/youth-writing-evaluation/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/topkof/youth-writing-evaluation)](https://github.com/topkof/youth-writing-evaluation)
+[![GitHub issues](https://img.shields.io/github/issues/topkof/youth-writing-evaluation)](https://github.com/topkof/youth-writing-evaluation/issues)
+[![License](https://img.shields.io/github/license/topkof/youth-writing-evaluation)](https://github.com/topkof/youth-writing-evaluation/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
 [![Node](https://img.shields.io/badge/node-18-green)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-blue)](https://www.docker.com/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-blue)](https://github.com/features/actions)
 
 **面向小学阶段青少年的写作质量智能评测平台**
 
@@ -463,6 +465,26 @@ npm run test:e2e
 
 ---
 
+### Docker 镜像
+
+项目通过 GitHub Actions 自动构建 Docker 镜像并发布到 GitHub Container Registry：
+
+| 镜像 | 地址 |
+|------|------|
+| 后端 | `ghcr.io/topkof/youth-writing-evaluation/backend:latest` |
+| 前端 | `ghcr.io/topkof/youth-writing-evaluation/frontend:latest` |
+
+**使用预构建镜像：**
+
+```bash
+# 拉取后端镜像
+docker pull ghcr.io/topkof/youth-writing-evaluation/backend:latest
+
+# 拉取前端镜像
+docker pull ghcr.io/topkof/youth-writing-evaluation/frontend:latest
+```
+
+---
 
 <div align="center">
 
